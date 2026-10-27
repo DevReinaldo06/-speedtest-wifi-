@@ -1,0 +1,20 @@
+# Sobe o sistema localmente: docker compose up --build
+# Acesse em http://localhost:3000
+services:
+  speedtest:
+    build:
+      context: .
+      args:
+        GIT_COMMIT: local
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: "3000"
+      DB_PATH: /app/data/speedtest.db
+    volumes:
+      # Volume nomeado: o histórico sobrevive a "docker compose down"
+      - speedtest-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  speedtest-data:

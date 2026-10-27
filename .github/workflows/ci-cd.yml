@@ -1,0 +1,156 @@
+name: CI/CD SpeedTest
+
+# Esteira do projeto. Cada job usa "needs": se um estágio falha,
+# os seguintes nem começam (ficam como "skipped").
+#
+#   lint -> build -> test-unit -> test-integration -> security -> docker -> deploy
+#
+# (A Parte 2 do projeto adiciona o estágio test-e2e entre test-integration e docker.)
+
+on:
+  push:
+    branches: [main, develop, "feature/**", "release/**", "hotfix/**"]
+  pull_request:
+    branches: [main, develop]
+
+env:
+  NODE_VERSION: 22
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  build:
+    name: build
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: bash scripts/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  test-unit:
+    name: test-unit
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      # O script já roda com cobertura e falha se ficar abaixo de 80%
+      - run: npm run test:unit
+
+  test-integration:
+    name: test-integration
+    needs: test-unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run test:integration
+
+  security:
+    name: security
+    needs: test-integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      # Falha se houver vulnerabilidade alta ou crítica nas dependências
+      - run: npm audit --audit-level=high
+
+  docker:
+    name: docker
+    needs: security
+    # Só publica a imagem quando o código chega na main
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      # O nome da imagem no GHCR precisa estar em minúsculas
+      - name: Definir nome da imagem
+        run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+
+  deploy:
+    name: deploy
+    needs: docker
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Conferir o segredo do deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then
+            echo "Segredo RENDER_DEPLOY_HOOK_URL não configurado (Settings > Secrets and variables > Actions)." >&2
+            exit 1
+          fi
+
+      - name: Disparar deploy no Render
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: curl -fsS -X POST "$HOOK"
+
+      # Se a variável APP_URL existir (Settings > Secrets and variables > Actions > Variables),
+      # espera o site publicado responder com o commit desta execução.
+      - name: Confirmar o site publicado
+        if: ${{ vars.APP_URL != '' }}
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "$APP_URL/api/health" | grep -q "$GITHUB_SHA"; then
+              echo
+              echo "Site publicado com o commit $GITHUB_SHA"
+              exit 0
+            fi
+            echo "Aguardando o novo deploy ($i/30)..."
+            sleep 10
+          done
+          echo "O site não respondeu com o commit esperado a tempo" >&2
+          exit 1

@@ -1,0 +1,23 @@
+version: 2
+updates:
+  # Dependências do projeto (package.json)
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: develop
+    labels:
+      - chore
+    commit-message:
+      prefix: "chore"
+
+  # Versões das actions usadas na pipeline
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    target-branch: develop
+    labels:
+      - ci
+    commit-message:
+      prefix: "ci"
