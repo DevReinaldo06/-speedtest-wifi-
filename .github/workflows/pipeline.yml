@@ -34,8 +34,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install semgrep==1.95.0
-      # Lê o código sem executar. --error = qualquer achado ERROR reprova.
+      - run: pip install semgrep==1.95.0 "setuptools<81"      # Lê o código sem executar. --error = qualquer achado ERROR reprova.
       - run: semgrep scan --config .semgrep/rules.yml --metrics=off --disable-version-check --error --exclude node_modules .
 
   sca:
