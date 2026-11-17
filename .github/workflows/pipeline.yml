@@ -87,7 +87,7 @@ jobs:
           code=$?
           echo "Saída do ZAP: $code (0=ok, 1=FAIL, 2=só avisos)"
           [ "$code" -eq 0 ] || [ "$code" -eq 2 ]
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: relatorio-zap
