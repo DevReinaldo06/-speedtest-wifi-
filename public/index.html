@@ -1,15 +1,25 @@
 <!doctype html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>SpeedTest Wifi</title>
-  </head>
-  <body>
-    <main>
-      <h1>SpeedTest Wifi</h1>
-      <p>O back-end está no ar. A interface do teste de velocidade chega na Parte 2 do projeto.</p>
-      <p><a href="/api/health">Ver /api/health</a></p>
-    </main>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teste de velocidade</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>Teste de velocidade do Wi-Fi</h1>
+    <button id="iniciar">Iniciar teste</button>
+    <p id="status">Pronto.</p>
+    <p>Download: <strong id="download">-</strong> Mbps</p>
+    <p>Upload: <strong id="upload">-</strong> Mbps</p>
+    <p>Ping: <strong id="ping">-</strong> ms</p>
+    <h2>Histórico</h2>
+    <table>
+      <thead><tr><th>Data</th><th>Down</th><th>Up</th><th>Ping</th></tr></thead>
+      <tbody id="historico"></tbody>
+    </table>
+  </main>
+  <script src="app.js"></script>
+</body>
 </html>
