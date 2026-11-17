@@ -1,0 +1,5 @@
+body { font-family: sans-serif; background: #f4f6f8; margin: 0; }
+main { max-width: 560px; margin: 2rem auto; padding: 0 1rem; }
+button { font-size: 1.1rem; padding: .6rem 1.2rem; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: .4rem; border-bottom: 1px solid #ccc; }

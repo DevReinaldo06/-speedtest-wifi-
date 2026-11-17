@@ -1,0 +1,56 @@
+# Regras do SAST (Semgrep). Ficam no repositório: "segurança como código".
+# Cada regra com severity ERROR derruba a esteira.
+rules:
+  - id: no-eval
+    languages: [javascript]
+    severity: ERROR
+    message: "Uso de eval() permite execução de código arbitrário (CWE-95). Remova."
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+
+  - id: no-sql-concatenation
+    languages: [javascript]
+    severity: ERROR
+    message: "SQL montado por concatenação/template permite SQL Injection (CWE-89). Use prepare() com parâmetros '?'."
+    pattern-either:
+      - pattern: $DB.prepare($A + $B)
+      - pattern: $DB.exec($A + $B)
+      - pattern: $DB.prepare(`...${$X}...`)
+      - pattern: $DB.exec(`...${$X}...`)
+
+  - id: no-command-injection
+    languages: [javascript]
+    severity: ERROR
+    message: "child_process com valor dinâmico permite injeção de comando (CWE-78)."
+    patterns:
+      - pattern-inside: |
+          $CP = require('child_process');
+          ...
+      - pattern-either:
+          - pattern: $CP.exec($CMD, ...)
+          - pattern: $CP.execSync($CMD, ...)
+      - pattern-not: $CP.$F("...", ...)
+
+  - id: no-dom-xss
+    languages: [javascript]
+    severity: ERROR
+    message: "innerHTML/outerHTML/document.write com dado dinâmico permite XSS (CWE-79). Use textContent."
+    patterns:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $X
+          - pattern: $EL.outerHTML = $X
+          - pattern: document.write($X)
+      - pattern-not: $EL.innerHTML = ""
+      - pattern-not: $EL.innerHTML = ''
+
+  - id: no-hardcoded-secret
+    languages: [javascript]
+    severity: ERROR
+    message: "Possível segredo escrito no código (CWE-798). Use variável de ambiente."
+    patterns:
+      - pattern: $VAR = "..."
+      - metavariable-regex:
+          metavariable: $VAR
+          regex: (?i).*(password|passwd|secret|api_?key|token).*
+      - pattern-not: $VAR = ""
