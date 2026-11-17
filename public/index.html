@@ -3,23 +3,135 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Teste de velocidade</title>
+  <title>Speedtest Wi-Fi</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <header class="topbar">
+    <div class="brand"><span class="brand__dot"></span>Speedtest Wi-Fi</div>
+    <nav class="tabs" aria-label="Seções">
+      <a href="#teste" class="tab" data-view="teste">Teste</a>
+      <a href="#historico" class="tab" data-view="historico">Histórico</a>
+      <a href="#esteira" class="tab" data-view="esteira">Esteira</a>
+    </nav>
+    <div class="versao" id="versao-topo" title="Versão em execução">v-</div>
+  </header>
+
   <main>
-    <h1>Teste de velocidade do Wi-Fi</h1>
-    <button id="iniciar">Iniciar teste</button>
-    <p id="status">Pronto.</p>
-    <p>Download: <strong id="download">-</strong> Mbps</p>
-    <p>Upload: <strong id="upload">-</strong> Mbps</p>
-    <p>Ping: <strong id="ping">-</strong> ms</p>
-    <h2>Histórico</h2>
-    <table>
-      <thead><tr><th>Data</th><th>Down</th><th>Up</th><th>Ping</th></tr></thead>
-      <tbody id="historico"></tbody>
-    </table>
+    <!-- ============ TESTE ============ -->
+    <section id="view-teste" class="view" hidden>
+      <div class="card hero">
+        <svg class="gauge" viewBox="0 0 200 125" role="img" aria-label="Velocímetro">
+          <defs>
+            <linearGradient id="grad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#22d3ee"/>
+              <stop offset="100%" stop-color="#a78bfa"/>
+            </linearGradient>
+          </defs>
+          <path class="gauge__trilho" d="M 20 105 A 80 80 0 0 1 180 105" pathLength="100"/>
+          <path id="gauge-arco" class="gauge__arco" d="M 20 105 A 80 80 0 0 1 180 105" pathLength="100"
+                stroke-dasharray="100" stroke-dashoffset="100"/>
+          <text id="gauge-valor" x="100" y="92" text-anchor="middle" class="gauge__valor">0</text>
+          <text id="gauge-unidade" x="100" y="112" text-anchor="middle" class="gauge__unidade">Mbps</text>
+        </svg>
+
+        <ol class="etapas" id="etapas">
+          <li data-etapa="ping">Ping</li>
+          <li data-etapa="download">Download</li>
+          <li data-etapa="upload">Upload</li>
+          <li data-etapa="salvo">Salvo</li>
+        </ol>
+
+        <p id="status" class="status" role="status">Pronto para medir.</p>
+        <button id="iniciar" class="btn btn--primario" type="button">Iniciar teste</button>
+      </div>
+
+      <div class="grid3">
+        <div class="card metrica"><span class="metrica__nome">Download</span><strong id="res-download">-</strong><span class="metrica__un">Mbps</span></div>
+        <div class="card metrica"><span class="metrica__nome">Upload</span><strong id="res-upload">-</strong><span class="metrica__un">Mbps</span></div>
+        <div class="card metrica"><span class="metrica__nome">Ping</span><strong id="res-ping">-</strong><span class="metrica__un">ms</span></div>
+      </div>
+      <p class="nota">Classificação da conexão: <span id="classe" class="selo" data-nivel="nenhum">-</span></p>
+      <p class="nota nota--fraca">O teste mede a conexão entre este navegador e o servidor onde o sistema está publicado.</p>
+    </section>
+
+    <!-- ============ HISTÓRICO ============ -->
+    <section id="view-historico" class="view" hidden>
+      <div class="grid4" id="resumo">
+        <div class="card metrica"><span class="metrica__nome">Medições</span><strong id="st-total">0</strong></div>
+        <div class="card metrica"><span class="metrica__nome">Download médio</span><strong id="st-down">-</strong><span class="metrica__un">Mbps</span></div>
+        <div class="card metrica"><span class="metrica__nome">Upload médio</span><strong id="st-up">-</strong><span class="metrica__un">Mbps</span></div>
+        <div class="card metrica"><span class="metrica__nome">Ping médio</span><strong id="st-ping">-</strong><span class="metrica__un">ms</span></div>
+      </div>
+
+      <div class="card">
+        <h2>Evolução</h2>
+        <div id="grafico" class="grafico"></div>
+        <p class="legenda"><span class="leg leg--down"></span>Download <span class="leg leg--up"></span>Upload</p>
+      </div>
+
+      <div class="card">
+        <div class="card__topo">
+          <h2>Medições</h2>
+          <button id="limpar" class="btn btn--perigo" type="button" hidden>Limpar histórico</button>
+        </div>
+        <p id="vazio" class="vazio">Nenhuma medição ainda. Faça o primeiro teste na aba Teste.</p>
+        <div class="tabela-wrap">
+          <table id="tabela" hidden>
+            <thead><tr><th>Data</th><th>Download</th><th>Upload</th><th>Ping</th><th>Nível</th></tr></thead>
+            <tbody id="corpo"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ ESTEIRA ============ -->
+    <section id="view-esteira" class="view" hidden>
+      <div class="card">
+        <h2>Esta versão veio da esteira</h2>
+        <p class="nota">Estes dados são lidos do sistema em execução. O <b>commit</b> é injetado pela própria pipeline, então dá para provar qual código está no ar.</p>
+        <dl class="info" id="info">
+          <div><dt>Versão</dt><dd id="i-versao">-</dd></div>
+          <div><dt>Commit</dt><dd><a id="i-commit" href="#esteira" target="_blank" rel="noopener">-</a></dd></div>
+          <div><dt>Ambiente</dt><dd id="i-ambiente">-</dd></div>
+          <div><dt>Servidor iniciado em</dt><dd id="i-inicio">-</dd></div>
+        </dl>
+      </div>
+
+      <div class="card">
+        <div class="card__topo">
+          <h2>Última execução na branch main</h2>
+          <a id="e-link" class="btn btn--leve" href="#esteira" target="_blank" rel="noopener" hidden>Abrir no GitHub Actions</a>
+        </div>
+        <p id="e-status" class="nota">Consultando o GitHub...</p>
+        <ol class="fluxo" id="fluxo"></ol>
+      </div>
+
+      <div class="card">
+        <h2>O que cada etapa faz</h2>
+        <div class="tabela-wrap">
+          <table>
+            <thead><tr><th>Etapa</th><th>Ferramenta</th><th>Reprova quando</th></tr></thead>
+            <tbody>
+              <tr><td>secrets</td><td>Gitleaks</td><td>acha senha ou chave escrita no código</td></tr>
+              <tr><td>sast</td><td>Semgrep</td><td>o código tem padrão inseguro (eval, SQL concatenado...)</td></tr>
+              <tr><td>sca</td><td>npm audit</td><td>uma dependência tem vulnerabilidade alta ou crítica</td></tr>
+              <tr><td>test</td><td>Jest</td><td>um teste automatizado falha</td></tr>
+              <tr><td>dast</td><td>OWASP ZAP</td><td>o sistema no ar viola uma regra de segurança (FAIL)</td></tr>
+              <tr><td>deploy</td><td>Render</td><td>só roda na main, depois de tudo passar</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Últimas execuções</h2>
+        <ul class="execucoes" id="execucoes"></ul>
+      </div>
+    </section>
   </main>
+
+  <footer class="rodape">Projeto de DevOps · esteira com SAST, DAST, SCA e scan de segredos</footer>
   <script src="app.js"></script>
 </body>
 </html>
