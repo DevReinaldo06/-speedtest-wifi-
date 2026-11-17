@@ -1,6 +1,7 @@
 // Servidor do medidor de velocidade (Node + Express).
 const express = require('express');
 const path = require('path');
+const pacote = require('./package.json');
 
 const app = express();
 app.disable('x-powered-by');
@@ -8,7 +9,10 @@ app.disable('x-powered-by');
 // Cabeçalhos de segurança (o DAST/ZAP confere se existem)
 app.use((req, res, next) => {
   res.set({
-    'Content-Security-Policy': "default-src 'self'; frame-ancestors 'none'",
+    // connect-src libera só a API pública do GitHub (a aba "Esteira" consulta as execuções)
+    'Content-Security-Policy':
+      "default-src 'self'; connect-src 'self' https://api.github.com; img-src 'self' data:; " +
+      "frame-ancestors 'none'; form-action 'self'; base-uri 'self'",
     'X-Frame-Options': 'DENY',
     'X-Content-Type-Options': 'nosniff',
   });
@@ -20,8 +24,25 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Histórico guardado na memória (zera quando o servidor reinicia)
 const historico = [];
+const iniciadoEm = new Date().toISOString();
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+
+// Informações da versão que está no ar. O commit é injetado pela esteira
+// (GIT_COMMIT no job dast) ou pelo Render (RENDER_GIT_COMMIT): é a ligação
+// entre o sistema e a pipeline.
+app.get('/api/info', (req, res) => {
+  res.json({
+    versao: pacote.version,
+    commit: process.env.GIT_COMMIT || process.env.RENDER_GIT_COMMIT || 'local',
+    repositorio:
+      process.env.GITHUB_REPOSITORY ||
+      process.env.RENDER_GIT_REPO_SLUG ||
+      'DevReinaldo06/-speedtest-wifi-',
+    ambiente: process.env.NODE_ENV || 'desenvolvimento',
+    iniciadoEm: iniciadoEm,
+  });
+});
 
 // Ping: resposta vazia só para medir o tempo de ida e volta
 app.get('/api/ping', (req, res) => res.json({ ok: true }));
@@ -51,6 +72,11 @@ app.post('/api/historico', (req, res) => {
   const medicao = { download, upload, ping, data: new Date().toISOString() };
   historico.unshift(medicao);
   res.status(201).json(medicao);
+});
+
+app.delete('/api/historico', (req, res) => {
+  historico.length = 0;
+  res.status(204).end();
 });
 
 module.exports = app;
