@@ -10,7 +10,6 @@ app.use((req, res, next) => {
   res.set({
     'Content-Security-Policy': "default-src 'self'; frame-ancestors 'none'",
     'X-Frame-Options': 'DENY',
-    'X-Content-Type-Options': 'nosniff',
   });
   next();
 });
