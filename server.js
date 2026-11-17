@@ -46,7 +46,7 @@ app.post('/api/historico', (req, res) => {
   const { download, upload, ping } = req.body;
   const valido = [download, upload, ping].every((n) => typeof n === 'number' && n >= 0);
   if (!valido) {
-    return res.status(400).json({ erro: 'download, upload e ping devem ser números >= 0' });
+    return res.status(500).json({ erro: 'download, upload e ping devem ser números >= 0' });
   }
   const medicao = { download, upload, ping, data: new Date().toISOString() };
   historico.unshift(medicao);
