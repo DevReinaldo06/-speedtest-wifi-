@@ -1,0 +1,109 @@
+name: Pipeline DevSecOps
+
+# Cada job tem "needs": se um falha, os seguintes não rodam.
+#
+#   secrets ─┐
+#   sast ────┼─> test -> dast -> deploy
+#   sca ─────┘
+#
+# secrets, sast e sca olham o código/dependências (rápidos, rodam juntos e primeiro).
+# test roda os testes automatizados. dast ataca o sistema rodando. deploy só na main.
+
+on:
+  push:
+    branches: [main, develop, "feature/**", "release/**", "hotfix/**"]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  secrets:
+    name: secrets (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Procura senhas e chaves esquecidas no código
+      - run: |
+          docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
+            detect --no-git --source /repo --redact --exit-code 1
+
+  sast:
+    name: sast (Semgrep)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install semgrep==1.95.0
+      # Lê o código sem executar. --error = qualquer achado ERROR reprova.
+      - run: semgrep scan --config .semgrep/rules.yml --metrics=off --disable-version-check --error --exclude node_modules .
+
+  sca:
+    name: sca (dependências)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      # Reprova se alguma dependência tiver vulnerabilidade alta ou crítica
+      - run: npm audit --audit-level=high
+
+  test:
+    name: test
+    needs: [secrets, sast, sca]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+
+  dast:
+    name: dast (OWASP ZAP)
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      # 1) Sobe o sistema
+      - name: Subir o app
+        run: |
+          node server.js &
+          for i in $(seq 1 20); do curl -fs http://localhost:3000/api/health && break; sleep 1; done
+      # 2) O ZAP ataca de fora. Regras em .zap/rules.tsv (FAIL reprova).
+      - name: ZAP baseline
+        run: |
+          mkdir -p zap-out && chmod 777 zap-out
+          set +e
+          docker run --rm --network host -v "$PWD/.zap:/zap/rules:ro" -v "$PWD/zap-out:/zap/wrk:rw" \
+            ghcr.io/zaproxy/zaproxy:stable zap-baseline.py \
+            -t http://localhost:3000 -c /zap/rules/rules.tsv -r relatorio.html
+          code=$?
+          echo "Saída do ZAP: $code (0=ok, 1=FAIL, 2=só avisos)"
+          [ "$code" -eq 0 ] || [ "$code" -eq 2 ]
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: relatorio-zap
+          path: zap-out/
+
+  deploy:
+    name: deploy
+    needs: dast
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      # Avisa o Render para publicar a nova versão (segredo RENDER_DEPLOY_HOOK_URL).
+      # Sem o segredo, o deploy é só simulado (não falha).
+      - env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "Sem segredo RENDER_DEPLOY_HOOK_URL: deploy simulado."; exit 0; fi
+          curl -fsS -X POST "$HOOK"
