@@ -34,7 +34,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install semgrep==1.95.0 "setuptools<81"      # Lê o código sem executar. --error = qualquer achado ERROR reprova.
+      - run: pip install semgrep==1.95.0 "setuptools<81"
+      # Lê o código sem executar. --error = qualquer achado ERROR reprova.
       - run: semgrep scan --config .semgrep/rules.yml --metrics=off --disable-version-check --error --exclude node_modules .
 
   sca:
@@ -46,8 +47,9 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      # Reprova se alguma dependência tiver vulnerabilidade alta ou crítica
-      - run: npm audit --audit-level=high
+      # Reprova se uma dependência de PRODUÇÃO tiver vulnerabilidade alta ou crítica.
+      # --omit=dev ignora ferramentas só de desenvolvimento (Jest), que não vão para o servidor.
+      - run: npm audit --omit=dev --audit-level=high
 
   test:
     name: test
@@ -71,11 +73,17 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
-      # 1) Sobe o sistema
+      # 1) Sobe o sistema. GIT_COMMIT é a ligação entre a esteira e o sistema:
+      #    o app devolve esse commit em /api/info e mostra na aba "Esteira".
       - name: Subir o app
+        env:
+          GIT_COMMIT: ${{ github.sha }}
         run: |
           node server.js &
           for i in $(seq 1 20); do curl -fs http://localhost:3000/api/health && break; sleep 1; done
+      # Confere que o sistema em teste é mesmo o código deste commit
+      - name: Conferir o commit no sistema
+        run: curl -fs http://localhost:3000/api/info | grep "$GITHUB_SHA"
       # 2) O ZAP ataca de fora. Regras em .zap/rules.tsv (FAIL reprova).
       - name: ZAP baseline
         run: |
@@ -106,3 +114,18 @@ jobs:
         run: |
           if [ -z "$HOOK" ]; then echo "Sem segredo RENDER_DEPLOY_HOOK_URL: deploy simulado."; exit 0; fi
           curl -fsS -X POST "$HOOK"
+
+      # Se existir a variável APP_URL (Settings > Secrets and variables > Actions > Variables),
+      # espera o site publicado mostrar o commit desta execução em /api/info.
+      - name: Confirmar o site publicado
+        if: ${{ vars.APP_URL != '' }}
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "$APP_URL/api/info" | grep -q "$GITHUB_SHA"; then
+              echo "Site publicado com o commit $GITHUB_SHA"; exit 0
+            fi
+            echo "Aguardando o novo deploy ($i/30)..."; sleep 10
+          done
+          echo "O site não mostrou o commit esperado a tempo" >&2; exit 1
