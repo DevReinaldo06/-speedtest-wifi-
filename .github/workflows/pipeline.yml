@@ -14,7 +14,7 @@ on:
     branches: [main, develop, "feature/**", "release/**", "hotfix/**"]
   pull_request:
     branches: [main, develop]
-
+# Gitkeaks
 jobs:
   secrets:
     name: secrets (Gitleaks)
@@ -25,7 +25,7 @@ jobs:
       - run: |
           docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:latest \
             detect --no-git --source /repo --redact --exit-code 1
-
+# SAST (Semgrep)
   sast:
     name: sast (Semgrep)
     runs-on: ubuntu-latest
@@ -37,7 +37,7 @@ jobs:
       - run: pip install semgrep==1.95.0 "setuptools<81"
       # Lê o código sem executar. --error = qualquer achado ERROR reprova.
       - run: semgrep scan --config .semgrep/rules.yml --metrics=off --disable-version-check --error --exclude node_modules .
-
+# SCA (npm audit)
   sca:
     name: sca (dependências)
     runs-on: ubuntu-latest

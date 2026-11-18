@@ -6,7 +6,7 @@ const pacote = require('./package.json');
 const app = express();
 app.disable('x-powered-by');
 
-// Cabeçalhos de segurança (o DAST/ZAP confere se existem)
+// Cabeçalhos de segurança (o DAST/ZAP confere se existem), 17
 app.use((req, res, next) => {
   res.set({
     // connect-src libera só a API pública do GitHub (a aba "Esteira" consulta as execuções)
